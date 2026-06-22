@@ -1,0 +1,16 @@
+{
+  "name": "tiktokliveChatOverlay",
+  "author": "satellacodes a.k.a dimas aris pangestu",
+  "version": "1.0.0",
+  "description": "Overlay chat & gift TikTok Live untuk OBS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "http": "^0.0.1-security",
+    "socket.io": "^4.8.3",
+    "tiktok-live-connector": "^2.1.1-beta1"
+  }
+}

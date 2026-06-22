@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <title>TikTok Live Overlay</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        font-family: "Segoe UI", Arial, sans-serif;
+        overflow: hidden;
+      }
+
+      #app {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        padding: 16px;
+      }
+
+      /*  CHAT LIST */
+      #chat-box {
+        position: absolute;
+        bottom: 16px;
+        left: 16px;
+        width: 380px;
+        max-height: 70vh;
+        display: flex;
+        flex-direction: column-reverse;
+        overflow: hidden;
+        gap: 8px;
+      }
+
+      .chat-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        background: rgba(0, 0, 0, 0.55);
+        border-radius: 10px;
+        padding: 8px 12px;
+        animation: slideIn 0.25s ease-out;
+        max-width: 100%;
+      }
+
+      .chat-item img {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: #444;
+      }
+
+      .chat-text {
+        color: #fff;
+        font-size: 14px;
+        line-height: 1.35;
+        word-break: break-word;
+      }
+
+      .chat-name {
+        font-weight: 700;
+        color: #5ee0ff;
+        margin-right: 6px;
+      }
+
+      .follow-item {
+        background: rgba(124, 58, 237, 0.55) !important;
+      }
+
+      .follow-item .chat-text {
+        font-weight: 600;
+      }
+
+      .follow-icon {
+        margin-right: 4px;
+      }
+
+      #like-counter {
+        position: absolute;
+        top: 24px;
+        right: 24px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(0, 0, 0, 0.55);
+        border-radius: 999px;
+        padding: 10px 18px;
+        color: #fff;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      #like-counter .heart {
+        color: #ff4d6d;
+        font-size: 18px;
+      }
+
+      #like-counter.pulse {
+        animation: pulse 0.3s ease-out;
+      }
+
+      #gift-alert {
+        position: absolute;
+        top: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        background: linear-gradient(
+          135deg,
+          rgba(255, 64, 129, 0.92),
+          rgba(255, 158, 64, 0.92)
+        );
+        border-radius: 16px;
+        padding: 12px 24px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+      }
+
+      #gift-alert.show {
+        opacity: 1;
+        animation: popIn 0.4s ease-out;
+      }
+
+      #gift-alert img.avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        border: 2px solid #fff;
+      }
+
+      #gift-alert img.gift-icon {
+        width: 48px;
+        height: 48px;
+      }
+
+      .gift-text {
+        color: #fff;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+      }
+
+      .gift-text .name {
+        font-weight: 800;
+        font-size: 16px;
+      }
+
+      .gift-text .detail {
+        font-size: 14px;
+        opacity: 0.95;
+      }
+
+      .gift-text .combo {
+        font-weight: 800;
+        font-size: 20px;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes popIn {
+        0% {
+          transform: translateX(-50%) scale(0.7);
+        }
+        60% {
+          transform: translateX(-50%) scale(1.05);
+        }
+        100% {
+          transform: translateX(-50%) scale(1);
+        }
+      }
+
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.12);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="chat-box"></div>
+      <div id="gift-alert"></div>
+      <div id="like-counter">
+        <span class="heart">❤️</span>
+        <span id="like-count">0</span>
+      </div>
+    </div>
+
+    <script>
+      const socket = io();
+
+      const chatBox = document.getElementById("chat-box");
+      const giftAlert = document.getElementById("gift-alert");
+      const likeCountEl = document.getElementById("like-count");
+      const likeCounterEl = document.getElementById("like-counter");
+
+      const MAX_CHAT_ITEMS = 40;
+      let giftTimer = null;
+      let likePulseTimer = null;
+
+      function escapeHtml(str) {
+        const div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      function renderChatItem(data) {
+        const el = document.createElement("div");
+        el.className = "chat-item";
+        el.innerHTML = `
+      <img src="${data.avatar || ""}" onerror="this.style.visibility='hidden'" />
+      <div class="chat-text">
+        <span class="chat-name">${escapeHtml(data.nickname)}</span>${escapeHtml(data.message)}
+      </div>
+    `;
+        return el;
+      }
+
+      function renderFollowItem(data) {
+        const el = document.createElement("div");
+        el.className = "chat-item follow-item";
+        el.innerHTML = `
+      <img src="${data.avatar || ""}" onerror="this.style.visibility='hidden'" />
+      <div class="chat-text">
+        <span class="follow-icon">➕</span>
+        <span class="chat-name">${escapeHtml(data.nickname)}</span>mulai mengikuti!
+      </div>
+    `;
+        return el;
+      }
+
+      function addChat(data) {
+        const el = renderChatItem(data);
+        chatBox.prepend(el);
+        while (chatBox.children.length > MAX_CHAT_ITEMS) {
+          chatBox.removeChild(chatBox.lastChild);
+        }
+      }
+
+      function addFollow(data) {
+        const el = renderFollowItem(data);
+        chatBox.prepend(el);
+        while (chatBox.children.length > MAX_CHAT_ITEMS) {
+          chatBox.removeChild(chatBox.lastChild);
+        }
+      }
+
+      function showGift(data) {
+        giftAlert.innerHTML = `
+      <img class="avatar" src="${data.avatar || ""}" onerror="this.style.visibility='hidden'" />
+      <div class="gift-text">
+        <div class="name">${escapeHtml(data.nickname)}</div>
+        <div class="detail">mengirim <b>${escapeHtml(data.giftName)}</b></div>
+      </div>
+      <img class="gift-icon" src="${data.giftIcon || ""}" onerror="this.style.visibility='hidden'" />
+      <div class="gift-text combo">x${data.repeatCount}</div>
+    `;
+        giftAlert.classList.add("show");
+
+        clearTimeout(giftTimer);
+        giftTimer = setTimeout(() => {
+          giftAlert.classList.remove("show");
+        }, 4000);
+      }
+
+      socket.on("chat-history", (history) => {
+        chatBox.innerHTML = "";
+        history.forEach(addChat);
+      });
+
+      socket.on("chat", (data) => {
+        addChat(data);
+      });
+
+      socket.on("gift", (data) => {
+        showGift(data);
+      });
+
+      socket.on("follow", (data) => {
+        addFollow(data);
+      });
+
+      socket.on("like", (data) => {
+        const total = data.totalLikeCount;
+        if (typeof total === "number") {
+          likeCountEl.textContent = total.toLocaleString("id-ID");
+        } else {
+          const current =
+            parseInt(likeCountEl.textContent.replace(/\D/g, ""), 10) || 0;
+          likeCountEl.textContent = (
+            current + (data.likeCount || 1)
+          ).toLocaleString("id-ID");
+        }
+
+        likeCounterEl.classList.remove("pulse");
+        void likeCounterEl.offsetWidth;
+        likeCounterEl.classList.add("pulse");
+        clearTimeout(likePulseTimer);
+        likePulseTimer = setTimeout(
+          () => likeCounterEl.classList.remove("pulse"),
+          300,
+        );
+      });
+    </script>
+  </body>
+</html>
