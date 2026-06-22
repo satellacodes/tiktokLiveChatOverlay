@@ -1,14 +1,14 @@
 # Overlay chat tiktok live
 
 <p align="center">
-  <img src="https://github.com/satellacodes/tiktokLiveChatOverlay/blob/main/assets/miaw1.png" width="180" />
+  <img src="https://github.com/satellacodes/tiktokLiveChatOverlay/blob/main/assets/miaw1.jpg" width="180" />
 </p>
 
 <p align="center">
     miaw
 </p>
 
-## I am Indonesian, I hope you can use translate if you can't understand my language.
+I am Indonesian, I hope you can use translate if you can't understand my language.
 
 ---
 
@@ -80,7 +80,7 @@ ke browser lalu akses http://localhost:3000/restart, agar bisa mendapatkan semua
 
 ---
 
-<img src="https://github.com/satellacodes/tiktokLiveChatOverlay/blob/main/assets/gracias.png" width="100%" />
+<img src="https://github.com/satellacodes/tiktokLiveChatOverlay/blob/main/assets/gracias.jpg" width="100%" />
 
 ---
 
