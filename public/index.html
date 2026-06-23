@@ -5,7 +5,9 @@
     <title>TikTok Live Overlay</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-      * {
+      *,
+      *::before,
+      *::after {
         box-sizing: border-box;
         margin: 0;
         padding: 0;
@@ -21,312 +23,502 @@
       }
 
       #app {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        padding: 16px;
-      }
-
-      /*  CHAT LIST */
-      #chat-box {
         position: absolute;
         bottom: 16px;
         left: 16px;
-        width: 380px;
-        max-height: 70vh;
+        width: 360px;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+
+      #chat-box {
         display: flex;
         flex-direction: column-reverse;
+        gap: 4px;
+        max-height: calc(100vh - 220px);
         overflow: hidden;
-        gap: 8px;
       }
 
-      .chat-item {
+      #join-zone {
         display: flex;
-        align-items: flex-start;
-        gap: 8px;
-        background: rgba(0, 0, 0, 0.55);
-        border-radius: 10px;
-        padding: 8px 12px;
-        animation: slideIn 0.25s ease-out;
-        max-width: 100%;
+        flex-direction: column;
+        gap: 3px;
+        margin-top: 6px;
+        overflow: hidden;
       }
 
-      .chat-item img {
-        width: 28px;
-        height: 28px;
+      .join-toast {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 10px;
+        border-radius: 8px;
+        background: rgba(0, 100, 50, 0.45);
+        backdrop-filter: blur(4px);
+        animation: fadeUp 0.2s ease-out forwards;
+        transition:
+          opacity 0.5s ease,
+          transform 0.5s ease;
+      }
+
+      .join-toast.hide {
+        opacity: 0;
+        transform: translateY(4px);
+        pointer-events: none;
+      }
+
+      .join-toast img.av {
+        width: 22px;
+        height: 22px;
         border-radius: 50%;
+        object-fit: cover;
         flex-shrink: 0;
-        background: #444;
       }
 
-      .chat-text {
+      .join-toast .jtxt {
         color: #fff;
-        font-size: 14px;
-        line-height: 1.35;
-        word-break: break-word;
+        font-size: 12.5px;
+        line-height: 1.3;
       }
 
-      .chat-name {
+      .join-toast .jtxt b {
+        color: #5effa0;
         font-weight: 700;
-        color: #5ee0ff;
-        margin-right: 6px;
+      }
+      .join-toast.is-fan {
+        background: rgba(120, 80, 0, 0.55);
+      }
+      .join-toast.is-fan .jtxt b {
+        color: #ffd166;
       }
 
-      .follow-item {
-        background: rgba(124, 58, 237, 0.55) !important;
+      #action-strip {
+        margin-top: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        overflow: hidden;
       }
 
-      .follow-item .chat-text {
-        font-weight: 600;
+      .action-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px 4px 6px;
+        border-radius: 999px;
+        backdrop-filter: blur(4px);
+        animation: fadeUp 0.2s ease-out;
+        font-size: 12px;
+        color: #fff;
+        width: fit-content;
+        max-width: 100%;
+        transition: opacity 0.5s ease;
       }
 
-      .follow-icon {
-        margin-right: 4px;
+      .action-pill.hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .action-pill img.av {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+      }
+
+      .action-pill .aname {
+        font-weight: 700;
+      }
+
+      .action-pill.follow {
+        background: rgba(80, 0, 120, 0.5);
+      }
+      .action-pill.follow .aname {
+        color: #d49dff;
+      }
+
+      .action-pill.share {
+        background: rgba(0, 80, 160, 0.5);
+      }
+      .action-pill.share .aname {
+        color: #7ec8ff;
+      }
+
+      .action-pill.repost {
+        background: rgba(0, 120, 100, 0.5);
+      }
+      .action-pill.repost .aname {
+        color: #5ef5d0;
       }
 
       #like-counter {
-        position: absolute;
-        top: 24px;
-        right: 24px;
-        display: flex;
+        margin-top: 8px;
+        display: inline-flex;
         align-items: center;
-        gap: 8px;
-        background: rgba(0, 0, 0, 0.55);
+        gap: 6px;
+        background: rgba(0, 0, 0, 0.45);
         border-radius: 999px;
-        padding: 10px 18px;
+        padding: 5px 13px;
         color: #fff;
-        font-size: 15px;
+        font-size: 13px;
         font-weight: 700;
+        backdrop-filter: blur(4px);
+        width: fit-content;
+        transition: transform 0.15s;
       }
 
-      #like-counter .heart {
-        color: #ff4d6d;
-        font-size: 18px;
-      }
-
-      #like-counter.pulse {
-        animation: pulse 0.3s ease-out;
+      #like-counter.bump {
+        transform: scale(1.12);
       }
 
       #gift-alert {
-        position: absolute;
-        top: 24px;
+        position: fixed;
+        top: 20px;
         left: 50%;
-        transform: translateX(-50%);
+        transform: translateX(-50%) scale(0.88);
         display: flex;
         align-items: center;
-        gap: 14px;
+        gap: 12px;
         background: linear-gradient(
           135deg,
-          rgba(255, 64, 129, 0.92),
-          rgba(255, 158, 64, 0.92)
+          rgba(220, 50, 110, 0.92),
+          rgba(230, 140, 30, 0.92)
         );
-        border-radius: 16px;
-        padding: 12px 24px;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+        border-radius: 18px;
+        padding: 11px 22px;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.3s ease;
+        transition:
+          opacity 0.25s,
+          transform 0.25s;
+        z-index: 999;
       }
 
       #gift-alert.show {
         opacity: 1;
-        animation: popIn 0.4s ease-out;
+        transform: translateX(-50%) scale(1);
       }
 
-      #gift-alert img.avatar {
-        width: 42px;
-        height: 42px;
+      #gift-alert img.av {
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
         border: 2px solid #fff;
+        object-fit: cover;
       }
 
-      #gift-alert img.gift-icon {
-        width: 48px;
-        height: 48px;
+      #gift-alert img.gi {
+        width: 44px;
+        height: 44px;
+        object-fit: contain;
       }
 
-      .gift-text {
+      .gift-info {
         color: #fff;
         text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
       }
-
-      .gift-text .name {
+      .gift-info .gname {
         font-weight: 800;
-        font-size: 16px;
+        font-size: 15px;
+      }
+      .gift-info .gsub {
+        font-size: 13px;
+        opacity: 0.9;
       }
 
-      .gift-text .detail {
-        font-size: 14px;
-        opacity: 0.95;
+      #gift-combo {
+        font-weight: 900;
+        font-size: 22px;
+        color: #fff;
+        text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
       }
 
-      .gift-text .combo {
-        font-weight: 800;
-        font-size: 20px;
+      .item {
+        display: flex;
+        align-items: flex-start;
+        gap: 7px;
+        border-radius: 9px;
+        padding: 6px 10px;
+        animation: fadeUp 0.2s ease-out;
+        max-width: 100%;
+        backdrop-filter: blur(4px);
       }
 
-      @keyframes slideIn {
+      .item.chat {
+        background: rgba(0, 0, 0, 0.52);
+      }
+      .item.chat.is-mod {
+        background: rgba(180, 20, 20, 0.6);
+      }
+      .item.chat.is-fan {
+        background: rgba(160, 110, 0, 0.6);
+      }
+      .item.chat.is-mod.is-fan {
+        background: rgba(180, 20, 20, 0.6);
+      }
+      .item.follow-chat {
+        background: rgba(60, 0, 100, 0.5);
+      }
+
+      .item img.av {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        object-fit: cover;
+        background: #333;
+      }
+
+      .item .txt {
+        color: #fff;
+        font-size: 13px;
+        line-height: 1.4;
+        word-break: break-word;
+        flex: 1;
+      }
+
+      .item .uname {
+        font-weight: 700;
+        margin-right: 4px;
+      }
+
+      .item.chat .uname {
+        color: #5ee0ff;
+      }
+      .item.chat.is-mod .uname {
+        color: #ff6b6b;
+      }
+      .item.chat.is-fan .uname {
+        color: #ffd166;
+      }
+      .item.follow-chat .uname {
+        color: #d49dff;
+      }
+
+      .badge {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        border-radius: 4px;
+        padding: 0 4px;
+        margin-right: 4px;
+        vertical-align: middle;
+        line-height: 1.5;
+      }
+      .badge.mod {
+        background: #ff4444;
+        color: #fff;
+      }
+      .badge.fan {
+        background: #c8890a;
+        color: #fff;
+      }
+
+      @keyframes fadeUp {
         from {
           opacity: 0;
-          transform: translateY(8px);
+          transform: translateY(6px);
         }
         to {
           opacity: 1;
           transform: translateY(0);
         }
       }
-
-      @keyframes popIn {
-        0% {
-          transform: translateX(-50%) scale(0.7);
-        }
-        60% {
-          transform: translateX(-50%) scale(1.05);
-        }
-        100% {
-          transform: translateX(-50%) scale(1);
-        }
-      }
-
-      @keyframes pulse {
-        0% {
-          transform: scale(1);
-        }
-        50% {
-          transform: scale(1.12);
-        }
-        100% {
-          transform: scale(1);
-        }
-      }
     </style>
   </head>
   <body>
+    <div id="gift-alert">
+      <img class="av" id="ga-av" src="" alt="" />
+      <div class="gift-info">
+        <div class="gname" id="ga-name"></div>
+        <div class="gsub" id="ga-sub"></div>
+      </div>
+      <img class="gi" id="ga-icon" src="" alt="" />
+      <div id="gift-combo"></div>
+    </div>
+
     <div id="app">
       <div id="chat-box"></div>
-      <div id="gift-alert"></div>
+
+      <div id="join-zone"></div>
+
+      <div id="action-strip"></div>
+
       <div id="like-counter">
-        <span class="heart">❤️</span>
-        <span id="like-count">0</span>
+        <span>❤️</span>
+        <span id="like-num">0</span>
       </div>
     </div>
 
     <script>
-      const socket = io();
+      const socket = io({ transports: ["websocket"], upgrade: false });
 
       const chatBox = document.getElementById("chat-box");
+      const joinZone = document.getElementById("join-zone");
+      const actionStrip = document.getElementById("action-strip");
       const giftAlert = document.getElementById("gift-alert");
-      const likeCountEl = document.getElementById("like-count");
-      const likeCounterEl = document.getElementById("like-counter");
+      const gaAv = document.getElementById("ga-av");
+      const gaName = document.getElementById("ga-name");
+      const gaSub = document.getElementById("ga-sub");
+      const gaIcon = document.getElementById("ga-icon");
+      const giftCombo = document.getElementById("gift-combo");
+      const likeNum = document.getElementById("like-num");
+      const likeCounter = document.getElementById("like-counter");
 
-      const MAX_CHAT_ITEMS = 40;
-      let giftTimer = null;
-      let likePulseTimer = null;
+      const MAX_CHAT = 40;
+      const MAX_ACTIONS = 6;
+      const MAX_JOINS = 4;
+      let giftTimer = null,
+        bumpTimer = null;
 
-      function escapeHtml(str) {
-        const div = document.createElement("div");
-        div.textContent = str;
-        return div.innerHTML;
+      function esc(s) {
+        const d = document.createElement("div");
+        d.textContent = String(s || "");
+        return d.innerHTML;
       }
 
-      function renderChatItem(data) {
+      function makeItem(cls, avatarSrc, html) {
         const el = document.createElement("div");
-        el.className = "chat-item";
-        el.innerHTML = `
-      <img src="${data.avatar || ""}" onerror="this.style.visibility='hidden'" />
-      <div class="chat-text">
-        <span class="chat-name">${escapeHtml(data.nickname)}</span>${escapeHtml(data.message)}
-      </div>
-    `;
+        el.className = "item " + cls;
+        const img = document.createElement("img");
+        img.className = "av";
+        img.src = avatarSrc || "";
+        img.onerror = () => {
+          img.style.visibility = "hidden";
+        };
+        const txt = document.createElement("div");
+        txt.className = "txt";
+        txt.innerHTML = html;
+        el.appendChild(img);
+        el.appendChild(txt);
         return el;
       }
 
-      function renderFollowItem(data) {
+      function addItem(el) {
+        chatBox.prepend(el);
+        while (chatBox.children.length > MAX_CHAT)
+          chatBox.removeChild(chatBox.lastChild);
+      }
+
+      function renderChat(d) {
+        let cls = "chat";
+        if (d.isMod) cls += " is-mod";
+        else if (d.isFan) cls += " is-fan";
+        let badges = "";
+        if (d.isMod) badges = `<span class="badge mod">MOD</span>`;
+        else if (d.isFan) badges = `<span class="badge fan">FANS</span>`;
+        addItem(
+          makeItem(
+            cls,
+            d.avatar,
+            `${badges}<span class="uname">${esc(d.nickname)}</span>${esc(d.message)}`,
+          ),
+        );
+      }
+
+      function renderJoin(d) {
         const el = document.createElement("div");
-        el.className = "chat-item follow-item";
-        el.innerHTML = `
-      <img src="${data.avatar || ""}" onerror="this.style.visibility='hidden'" />
-      <div class="chat-text">
-        <span class="follow-icon">➕</span>
-        <span class="chat-name">${escapeHtml(data.nickname)}</span>mulai mengikuti!
-      </div>
-    `;
-        return el;
+        el.className = "join-toast" + (d.isFan ? " is-fan" : "");
+
+        const img = document.createElement("img");
+        img.className = "av";
+        img.src = d.avatar || "";
+        img.onerror = () => {
+          img.style.visibility = "hidden";
+        };
+
+        const txt = document.createElement("div");
+        txt.className = "jtxt";
+        txt.innerHTML = `👋 <b>${esc(d.nickname)}</b> bergabung`;
+
+        el.appendChild(img);
+        el.appendChild(txt);
+        joinZone.prepend(el);
+
+        while (joinZone.children.length > MAX_JOINS)
+          joinZone.removeChild(joinZone.lastChild);
+
+        setTimeout(() => {
+          el.classList.add("hide");
+          setTimeout(() => el.remove(), 500);
+        }, 2500);
       }
 
-      function addChat(data) {
-        const el = renderChatItem(data);
-        chatBox.prepend(el);
-        while (chatBox.children.length > MAX_CHAT_ITEMS) {
-          chatBox.removeChild(chatBox.lastChild);
-        }
+      function addAction(cls, icon, name, label, avatarSrc) {
+        const el = document.createElement("div");
+        el.className = "action-pill " + cls;
+
+        const img = document.createElement("img");
+        img.className = "av";
+        img.src = avatarSrc || "";
+        img.onerror = () => {
+          img.style.visibility = "hidden";
+        };
+
+        el.appendChild(img);
+        el.innerHTML += `<span>${icon}</span><span class="aname">${esc(name)}</span><span style="opacity:.8">${label}</span>`;
+        actionStrip.prepend(el);
+
+        while (actionStrip.children.length > MAX_ACTIONS)
+          actionStrip.removeChild(actionStrip.lastChild);
+
+        setTimeout(() => {
+          el.classList.add("hide");
+          setTimeout(() => el.remove(), 500);
+        }, 15000);
       }
 
-      function addFollow(data) {
-        const el = renderFollowItem(data);
-        chatBox.prepend(el);
-        while (chatBox.children.length > MAX_CHAT_ITEMS) {
-          chatBox.removeChild(chatBox.lastChild);
-        }
+      function renderFollow(d) {
+        addAction("follow", "➕", d.nickname, "mulai mengikuti", d.avatar);
+      }
+      function renderShare(d) {
+        addAction("share", "🔗", d.nickname, "membagikan live", d.avatar);
+      }
+      function renderRepost(d) {
+        addAction("repost", "🔁", d.nickname, "repost live", d.avatar);
       }
 
-      function showGift(data) {
-        giftAlert.innerHTML = `
-      <img class="avatar" src="${data.avatar || ""}" onerror="this.style.visibility='hidden'" />
-      <div class="gift-text">
-        <div class="name">${escapeHtml(data.nickname)}</div>
-        <div class="detail">mengirim <b>${escapeHtml(data.giftName)}</b></div>
-      </div>
-      <img class="gift-icon" src="${data.giftIcon || ""}" onerror="this.style.visibility='hidden'" />
-      <div class="gift-text combo">x${data.repeatCount}</div>
-    `;
+      function showGift(d) {
+        gaAv.src = d.avatar || "";
+        gaName.textContent = d.nickname;
+        gaSub.textContent = `mengirim ${d.giftName}`;
+        giftCombo.textContent = `×${d.repeatCount}`;
+        if (d.giftIcon) {
+          gaIcon.src = d.giftIcon;
+          gaIcon.style.display = "";
+        } else gaIcon.style.display = "none";
         giftAlert.classList.add("show");
-
         clearTimeout(giftTimer);
-        giftTimer = setTimeout(() => {
-          giftAlert.classList.remove("show");
-        }, 4000);
+        giftTimer = setTimeout(() => giftAlert.classList.remove("show"), 4500);
+      }
+
+      function updateLike(total) {
+        if (typeof total === "number" && total > 0)
+          likeNum.textContent = total.toLocaleString("id-ID");
+        likeCounter.classList.remove("bump");
+        void likeCounter.offsetWidth;
+        likeCounter.classList.add("bump");
+        clearTimeout(bumpTimer);
+        bumpTimer = setTimeout(() => likeCounter.classList.remove("bump"), 150);
       }
 
       socket.on("chat-history", (history) => {
         chatBox.innerHTML = "";
-        history.forEach(addChat);
+        history.forEach((d) => {
+          if (d.type === "chat") renderChat(d);
+        });
       });
-
-      socket.on("chat", (data) => {
-        addChat(data);
-      });
-
-      socket.on("gift", (data) => {
-        showGift(data);
-      });
-
-      socket.on("follow", (data) => {
-        addFollow(data);
-      });
-
-      socket.on("like", (data) => {
-        const total = data.totalLikeCount;
-        if (typeof total === "number") {
-          likeCountEl.textContent = total.toLocaleString("id-ID");
-        } else {
-          const current =
-            parseInt(likeCountEl.textContent.replace(/\D/g, ""), 10) || 0;
-          likeCountEl.textContent = (
-            current + (data.likeCount || 1)
-          ).toLocaleString("id-ID");
-        }
-
-        likeCounterEl.classList.remove("pulse");
-        void likeCounterEl.offsetWidth;
-        likeCounterEl.classList.add("pulse");
-        clearTimeout(likePulseTimer);
-        likePulseTimer = setTimeout(
-          () => likeCounterEl.classList.remove("pulse"),
-          300,
-        );
-      });
+      socket.on("chat", renderChat);
+      socket.on("join", renderJoin);
+      socket.on("follow", renderFollow);
+      socket.on("share", renderShare);
+      socket.on("repost", renderRepost);
+      socket.on("gift", showGift);
+      socket.on("like", (d) => updateLike(d.totalLikeCount));
     </script>
   </body>
 </html>

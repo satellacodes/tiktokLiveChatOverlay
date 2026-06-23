@@ -10,6 +10,9 @@
 
 I am Indonesian, I hope you can use translate if you can't understand my language.
 
+> [!NOTE]
+> Before starting, I would like to thank the creators of tiktok-live-connector and eulerstream.
+
 ---
 
 ## ALASAN/LatarBelakang/History/Abstrak/Abstract
@@ -40,6 +43,21 @@ saya menjalankannya pada laptop local saya mac m1,dan install manual dengan node
 ```bash
 git clone https://github.com/satellacodes/tiktokLiveChatOverlay.git
 cd tiktokLiveChatOverlay
+```
+
+> [!TIP]
+> buatlah sign API Account terlebih dahulu di eulerstream.com , lalu copy api keynya dan masukan ke EULER_API_KEY.
+> sebelum running app ini ada baiknya menambahkan tiktok_username, apikey,moderator yang ada di server.js
+
+#### 2. config app
+
+> [!CONTOH/EXAMPLE]
+
+```bash
+const TIKTOK_USERNAME = "tiktokaku";
+const EULER_API_KEY = "euler_AMBATUKMMM";
+const MODERATORS = ["your", "admin", "moderator"].map((x) => x.toLowerCase());
+
 ```
 
 #### 2. Install Dependencies
